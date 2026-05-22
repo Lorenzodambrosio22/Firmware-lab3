@@ -10,44 +10,43 @@
 #include <stdint.h>
 
 // Declaration of output queue, defined in main.c
-
-//la parola extern significa che la variabile è definita in un altro file .c
+//extern meas the variable was declared in another .c file
 
 extern osMessageQueueId_t acquisitionQueueHandle;
 
-//
-extern ADC_HandleTypeDef hadc1;	//legge il pin AIN3 connesso al partitore del NTC
+//reads the AIN4 pin connected to the 10k/10k fixed divider
+extern ADC_HandleTypeDef hadc1;	//read the AIN3 pin connected to the NTC divider
 extern ADC_HandleTypeDef hadc2; //legge il pin AIN4 connesso al partitore fisso 10k/10k
 
 osEventFlagsId_t acqEventFlagsHandle;
 
 //costante x preprocessore
-#define ACQ_FLAG_START (1U << 0)	//rappresenta 1 con suffisso unsigned
-// (<<0) rappresenta kl'operazione di shift a sinistra
-//costanti fisiche
-#define R0_NTC		10000	//resistenza nominale dell'NTC a 25°C
-#define KELVIN_X10  2731	// moltiplicato x10 perchèp lavoriamo in decimi di kelvin
+#define ACQ_FLAG_START (1U << 0)	//sets bit 0 as the flag to trigger the ADC sampling
+// (<<0) rapresents the left shift operation
+//physical costants
+#define R0_NTC		10000	//nominal resistence of the NTC at 25 degrees celcius
+#define KELVIN_X10  2731	//celcius kelvin conversion constant, ten times larger for the decimal rappresentation
 #define ADC_TIMEOUT_MS 10	//timeout
 #define ADC_MAX_COUNT ((1U << 12) - 1U) //(2^12-1)=4095
-#define NTC_COEFF_INV_X10 250 // (1/0.04) *10
+#define NTC_COEFF_INV_X10 250 // (1/0.04) *10, this constant makes temperatures changes easily computable
 
 
 // Acquisition task entry point
 
-//tutti i task RTOS devono ricevere un puntatore generico come parametro
+//all RTOS tasks must receive a generic pointer as a parameter
 void StartAcquisitionTask( void *argument ) {
 	acqEventFlagsHandle = osEventFlagsNew(NULL);
-	//crea un nuovo oggetto eventsflag
+	//create a new eventsflag object
   /* Infinite loop */
-/*tutti i task RTOS devono essere loop infiniti, se un task ritornasse,
- * l'RTOS andrebbe in errore*/
+/*all the RTOS tasks must be infinite loops, if a task returned
+*	the RTOS would encounter an error*/
   for( ; ; ) {
     //osDelay( 1 );		??
 	  (void)argument;  /* unused, silence compiler warning */
 
     osEventFlagsWait(acqEventFlagsHandle, ACQ_FLAG_START, osFlagsWaitAny, osWaitForever);
 
-    //lettura di ADC1
+	//ADC1 read
     if( HAL_ADC_Start(&hadc1) != HAL_OK){
     	continue;
     }
@@ -58,7 +57,7 @@ void StartAcquisitionTask( void *argument ) {
     uint32_t adc1 = HAL_ADC_GetValue(&hadc1);
     HAL_ADC_Stop(&hadc1);
 
-    //lettura di ADC2
+    //ADC2 read
     if( HAL_ADC_Start(&hadc2) != HAL_OK){
         	continue;
         }
@@ -69,27 +68,27 @@ void StartAcquisitionTask( void *argument ) {
         uint32_t adc2 = HAL_ADC_GetValue(&hadc2);
         HAL_ADC_Stop(&hadc2);
 
-    //Calcolo del denominatore
+    //Denominator computation
     int32_t denom = (int32_t)(2u * adc2) - (int32_t)adc1;
     //protezione da circuito aperto o cortocircuito
     if (denom <= 0)
     	continue;
 
-    //Calcolo di NTC
+    //NTC computation
     int32_t r_ntc = (int32_t)R0_NTC * (int32_t)adc1 / denom;
 
-    //calcolo temperatura in decimi di Celsius
+	//calculates the temperature in celcius decimals
     int32_t t_celsius_x10 = 250 + ((int32_t)R0_NTC - r_ntc) * NTC_COEFF_INV_X10 / (int32_t)R0_NTC;
-    //Tref + (R0-R_NTC)*inverso_coefficiente / R0 tutto scalato x10
-    //conversione in decimi di kelvin
+    //Tref + (R0-R_NTC)*inverso_coefficiente / R0 scaled x10
+	//conversion in kelvin decimals
     int32_t t_kelvin_x10 = t_celsius_x10 + KELVIN_X10;
 
-    //check del valore
+    //check value
     if(t_kelvin_x10 <= 0 || t_kelvin_x10 > 65535)
     	continue;
     uint16_t t_encoded = (uint16_t)t_kelvin_x10;
 
-    //invio nella coda
+    //push in queue
     osMessageQueuePut(acquisitionQueueHandle, &t_encoded, 0U, 0U);
 
   }
