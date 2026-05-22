@@ -51,7 +51,7 @@ void StartDefaultTask( void *argument ) {
 			}
 		} else if( getSwitch1() ) { // This must be filled by students, to perform requested functions
 			HAL_TIM_PWM_Start_IT(&htim1, TIM_CHANNEL_1);
-			//avvia  il timer in m odalità PWM sul canale 1
+			//starts the timer in PWM mode on channel 1
 			while( getSwitch1() ){
 					uint16_t temperature;
 					osStatus_t status = osMessageQueueGet(acquisitionQueueHandle, &temperature, NULL, osWaitForever);
