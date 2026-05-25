@@ -1,0 +1,2 @@
+../Src/acquisition.c:51:16:ntcResistanceToKelvinX10	5
+../Src/acquisition.c:80:6:StartAcquisitionTask	8

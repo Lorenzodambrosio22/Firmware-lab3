@@ -1,0 +1,2 @@
+../Src/display.c:17:13:lcdWriteTemperature	1
+../Src/display.c:32:6:StartDisplayTask	2

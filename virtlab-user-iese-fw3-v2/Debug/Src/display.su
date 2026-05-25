@@ -1,0 +1,2 @@
+../Src/display.c:17:13:lcdWriteTemperature	24	static
+../Src/display.c:32:6:StartDisplayTask	24	static
